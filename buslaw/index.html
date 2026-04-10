@@ -533,6 +533,9 @@ Fields: businessName, businessDescription, cofounderName, cofounderRole, sp_liab
 [ADVANCE] — unlock next stage (only when student demonstrates understanding)
 [CHOICES: opt1 | opt2 | opt3] — quick reply options
 
+### CHOICES MUST MATCH CURRENT STAGE
+NEVER offer a choice that references a future stage topic. If the student is in Stage 2 (General Partnership), choices must be about general partnership concepts — NOT "explore limited partnerships" or "learn about LLCs." Only offer forward-looking choices like "move to the next entity type" AFTER you have emitted [ADVANCE]. If the student hasn't met the gate requirements yet, choices should help them explore the CURRENT topic deeper or answer the pending questions.
+
 ## STAGES
 
 ### Stage 0: Business Idea & Co-Founder [STAGE:0]
@@ -771,7 +774,7 @@ function resumeSession() {
       .replace(/\[STAGE:\d\]/g, '')
       .replace(/\[ADVANCE\]/g, '')
       .replace(/\[DOC_UPDATE:[^\]]+\]/g, '')
-      .replace(/^DOC_UPDATE:\S+=.+$/gm, '')
+      .replace(/DOC_UPDATE:\w+=.*?(?=DOC_UPDATE|[\n]|$)/g, '')
       .replace(/\[CHOICES:.+?\]/g, '')
       .trim();
     if (!content) return;
@@ -848,12 +851,12 @@ function addMessage(role, rawContent) {
 
   const docUpdates = [];
   const docRx = /\[DOC_UPDATE:([^\]=]+)=([^\]]+)\]/g;
-  const docRxNoBracket = /^DOC_UPDATE:(\S+?)=(.+)$/gm;
+  const docRxNoBracket = /DOC_UPDATE:(\w+?)=(.*?)(?=DOC_UPDATE|[\n]|$)/g;
   let m;
   while ((m = docRx.exec(content)) !== null) docUpdates.push({ field: m[1].trim(), value: m[2].trim() });
   while ((m = docRxNoBracket.exec(content)) !== null) docUpdates.push({ field: m[1].trim(), value: m[2].trim() });
   content = content.replace(/\[DOC_UPDATE:[^\]]+\]/g, '');
-  content = content.replace(/^DOC_UPDATE:\S+=.+$/gm, '');
+  content = content.replace(/DOC_UPDATE:\w+=.*?(?=DOC_UPDATE|[\n]|$)/g, '');
 
   let choices = [];
   const cMatch = content.match(/\[CHOICES:\s*(.+?)\]/);
@@ -980,7 +983,7 @@ async function callTutor() {
   const msgs = conversationHistory.map(m => ({
     role: m.role,
     content: m.content.replace(/\[STAGE:\d\]/g, '').replace(/\[ADVANCE\]/g, '')
-      .replace(/\[DOC_UPDATE:[^\]]+\]/g, '').replace(/^DOC_UPDATE:\S+=.+$/gm, '')
+      .replace(/\[DOC_UPDATE:[^\]]+\]/g, '').replace(/DOC_UPDATE:\w+=.*?(?=DOC_UPDATE|[\n]|$)/g, '')
       .replace(/\[CHOICES:.+?\]/g, '').trim()
   })).filter(m => m.content);
 
@@ -1196,7 +1199,7 @@ function downloadTranscript() {
     const role = m.role === 'assistant' ? 'TUTOR' : 'STUDENT';
     const content = m.content
       .replace(/\[STAGE:\d\]/g, '').replace(/\[ADVANCE\]/g, '')
-      .replace(/\[DOC_UPDATE:[^\]]+\]/g, '').replace(/^DOC_UPDATE:\S+=.+$/gm, '')
+      .replace(/\[DOC_UPDATE:[^\]]+\]/g, '').replace(/DOC_UPDATE:\w+=.*?(?=DOC_UPDATE|[\n]|$)/g, '')
       .replace(/\[CHOICES:.+?\]/g, '').trim();
     return `[${role}]\n${content}\n`;
   });
