@@ -463,6 +463,10 @@ body { font-family: var(--font-body); background: var(--gray-light); color: var(
       <button class="btn-secondary" onclick="downloadTranscript()">Download Transcript</button>
       <button class="btn-secondary" onclick="closeMemo()">← Back</button>
     </div>
+    <div style="margin:0 24px 20px; padding:14px 18px; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; font-size:0.85rem; line-height:1.5;">
+      <strong style="color:#856404;">📤 Don't forget!</strong><br>
+      Upload <em>both</em> your <strong>Company Memorandum</strong> and <strong>Conversation Transcript</strong> to <strong>CourseConnect</strong> to receive credit for this assignment.
+    </div>
   </div>
 </div>
 
@@ -528,10 +532,12 @@ Introduce a co-founder character in Stage 0. Force negotiation: ownership splits
 After decisions/understanding, emit [DOC_UPDATE:field=value] to populate the Company Document.
 Fields: businessName, businessDescription, cofounderName, cofounderRole, sp_liability, sp_taxes, sp_whynot, gp_ownership, gp_voting, gp_fiduciary, gp_jointliability, gp_dissolution, lp_roles, lp_liability, lp_management, lp_verdict, llc_liability, llc_taxes, llc_operating, llc_management, final_entity, final_reasoning
 
-### STAGE PROGRESSION (use at end of messages)
-[STAGE:N] — current stage (0-5)
-[ADVANCE] — unlock next stage (only when student demonstrates understanding)
+### STAGE PROGRESSION (use at end of EVERY message)
+[STAGE:N] — REQUIRED in every response. N = the stage you are currently teaching (0-5).
+[ADVANCE] — emit this IMMEDIATELY when the student meets a gate requirement, BEFORE you begin teaching the next stage topic. You MUST emit [ADVANCE] at every stage transition — if you start discussing a new entity type, [ADVANCE] must appear in that same message.
 [CHOICES: opt1 | opt2 | opt3] — quick reply options
+
+**CRITICAL**: Never discuss the next entity type without first emitting [ADVANCE]. If the student passes the gate for Stage 2 and you begin talking about Limited Partnerships, that message MUST contain [ADVANCE]. Forgetting [ADVANCE] locks the student out of the Finalize & Download button at the end.
 
 ### CHOICES MUST MATCH CURRENT STAGE
 NEVER offer a choice that references a future stage topic. If the student is in Stage 2 (General Partnership), choices must be about general partnership concepts — NOT "explore limited partnerships" or "learn about LLCs." Only offer forward-looking choices like "move to the next entity type" AFTER you have emitted [ADVANCE]. If the student hasn't met the gate requirements yet, choices should help them explore the CURRENT topic deeper or answer the pending questions.
@@ -849,6 +855,42 @@ function addMessage(role, rawContent) {
 
   if (content.includes('[ADVANCE]')) { shouldAdvance = true; content = content.replace(/\[ADVANCE\]/g, ''); }
 
+  // ── STAGE SAFETY NET ──
+  // If the AI emits [STAGE:N] and N is ahead of our tracker, catch up.
+  // This fixes cases where [ADVANCE] tokens were missed but the AI moved on.
+  if (role === 'tutor' && stageMatch) {
+    const declaredStage = parseInt(stageMatch[1], 10);
+    if (declaredStage > currentStage) {
+      // Advance to the declared stage (one step at a time to trigger UI updates)
+      while (currentStage < declaredStage && currentStage < STAGES.length - 1) {
+        advanceStage();
+      }
+    }
+  }
+
+  // Keyword-based fallback: if tutor is clearly teaching a later stage topic
+  // but tracker hasn't caught up, nudge it forward.
+  if (role === 'tutor' && !shouldAdvance) {
+    const lc = content.toLowerCase();
+    const stageKeywords = [
+      null, // Stage 0 — no keywords needed
+      null, // Stage 1 — no keywords needed
+      { min: 2, phrases: ['general partnership', 'joint and several liability', 'fiduciary dut'] },
+      { min: 3, phrases: ['limited partnership', 'general partner and limited partner', 'control rule', 'management participation'] },
+      { min: 4, phrases: ['llc gives you', 'operating agreement', 'member-managed', 'manager-managed', 'limited liability company'] },
+      { min: 5, phrases: ['final choice', 'finalize & download', 'finalize and download', 'chosen entity', 'you\'ve worked through every'] }
+    ];
+    for (let s = stageKeywords.length - 1; s >= 2; s--) {
+      const sk = stageKeywords[s];
+      if (sk && currentStage < sk.min && sk.phrases.some(p => lc.includes(p))) {
+        while (currentStage < sk.min && currentStage < STAGES.length - 1) {
+          advanceStage();
+        }
+        break;
+      }
+    }
+  }
+
   const docUpdates = [];
   const docRx = /\[DOC_UPDATE:([^\]=]+)=([^\]]+)\]/g;
   const docRxNoBracket = /DOC_UPDATE:(\w+?)=(.*?)(?=DOC_UPDATE|[\n]|$)/g;
@@ -907,7 +949,7 @@ function addMessage(role, rawContent) {
     fin.className = 'stage-gate';
     fin.style.borderColor = 'var(--pink)';
     fin.style.background = 'var(--pink-light)';
-    fin.innerHTML = `<div class="gate-icon">🎉</div><div class="gate-text" style="color:var(--pink);">Ready to finalize!<span>Click "Finalize & Download" on your Company Document to complete your memorandum.</span></div>`;
+    fin.innerHTML = `<div class="gate-icon">🎉</div><div class="gate-text" style="color:var(--pink);">Ready to finalize!<span>Click "Finalize & Download" on your Company Document to complete your memorandum.</span><span style="display:block;margin-top:8px;font-size:0.82rem;color:#856404;background:#fff3cd;padding:8px 12px;border-radius:6px;border:1px solid #ffc107;">📤 Remember: Upload both your Memorandum and Transcript to <strong>CourseConnect</strong> for credit.</span></div>`;
     container.appendChild(fin);
   }
 
