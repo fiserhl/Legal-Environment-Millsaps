@@ -324,6 +324,15 @@ button { font-family: var(--font-body); }
 .desk-preview { position: -webkit-sticky; position: sticky; top: 0; }
 .will-snippet { padding-right: 130px !important; }
 .will-snippet .margin-note { right: 10px !important; width: 105px; top: 12px !important; }
+.int-tree { width: 280px; height: auto; background: #fff; border: 1px solid #e0dcef; border-radius: 8px; }
+.int-tree .it-label { font: 700 12px var(--font-body); fill: var(--purple); }
+.int-tree .it-live { fill: #fff; stroke: var(--purple); stroke-width: 1.3; }
+.int-tree .it-dead { fill: #e7e5ee; stroke: #8a86a0; stroke-width: 1.2; stroke-dasharray: 3 2; }
+.int-tree .it-name { font: 700 11px var(--font-body); fill: #222; }
+.int-tree .it-name.small { font-size: 10px; }
+.int-tree .it-share { fill: #fef9e7; stroke: var(--amber); stroke-width: 1; }
+.int-tree .it-q { font: 700 11px var(--font-body); fill: var(--amber); }
+.int-tree .it-none { font: italic 9px var(--font-body); fill: var(--gray); }
 
 </style>
 <style id="willStyles">
@@ -412,12 +421,12 @@ button { font-family: var(--font-body); }
     <div class="wc-item"><span class="wc-num">5</span><span><b>Distribution:</b> decide who ends up with what, then download your memorandum, feedback report, and transcript for CourseConnect.</span></div>
   </div>
 
-  <div class="attorney-field"><label for="attorneyName">Your name, as it will appear on the will you prepare (optional)</label>
-    <input id="attorneyName" type="text" maxlength="60" placeholder="e.g., Jordan Smith"></div>
+  <div class="attorney-field"><label for="attorneyName">Your full name, as it will appear on the will you prepare (required)</label>
+    <input id="attorneyName" type="text" maxlength="60" placeholder="e.g., Jordan Smith" required></div>
 
   <div class="notice amber"><strong>Use one device and one browser for the whole exercise.</strong> Your progress saves automatically on this device, so you can take breaks. Switching devices or browsers, or using private/incognito mode, means starting over. Plan on 75 to 90 minutes total.</div>
   <div class="notice amber" id="welcomeResume" style="display:none"></div>
-  <div class="notice"><strong>Privacy:</strong> While you work, your conversation is saved only in this browser and is sent to the AI tutor to generate replies. When you click Finalize, a certified copy of your transcript, will, and memorandum is stored securely so your instructor can verify it (kept about six months, viewable only with the instructor's key). The name above is optional and appears only on your documents and certified copy.</div>
+  <div class="notice"><strong>Privacy:</strong> While you work, your conversation is saved only in this browser and is sent to the AI tutor to generate replies. When you click Finalize, a certified copy of your transcript, will, and memorandum is stored securely so your instructor can verify it (kept about six months, viewable only with the instructor's key). Your name appears on the will you prepare, your documents, and the certified copy.</div>
 
   <button class="welcome-start-btn" onclick="startTutor()">Meet Your Client →</button>
 </div>
@@ -596,7 +605,7 @@ ADEMPTION BY EXTINCTION: a specific bequest fails if the item is not in the esta
 LAPSE: a gift to a beneficiary who dies before the testator lapses and falls into the residue at common law; most states have anti-lapse statutes that substitute the predeceased beneficiary's descendants when the beneficiary is a close relative (often any descendant of the testator's grandparents, which includes a brother), unless the will states a contrary intent (for example, an express survivorship requirement).
 RESIDUARY CLAUSE: catches everything not otherwise disposed of; without one, undisposed property passes by intestacy.
 DISINHERITANCE: an adult child may be disinherited by a valid will; there is no forced share for children. Pretermitted heir statutes protect mainly children born after the will. An express statement of omission defeats an "accidentally forgot him" argument.
-INTESTACY (no spouse): children take equally; descendants of a predeceased child take per stirpes (or per capita by the state's scheme). Randy would take one-third if Dub died intestate.
+INTESTACY (no spouse): the estate passes to descendants. Per the course outline: PER CAPITA means each child, or if there are no surviving children, each grandchild, takes an equal share. PER STIRPES means the grandchildren of a predeceased child divide that child's share, even if one child produced more grandchildren than another; a branch with no surviving descendants drops out. Stepchildren do not inherit unless adopted. Randy would take one-third if Dub died intestate with all three children alive.
 NON-PROBATE ASSETS: life insurance, payable-on-death and joint accounts with right of survivorship, joint tenancy real estate, and inter vivos trusts pass by contract or title, OUTSIDE the will, regardless of what the will says.
 PROBATE / PERSONAL REPRESENTATIVE: petition to probate the will, court appointment (letters testamentary for an executor; an administrator if no will or no executor can serve), collect and inventory assets, have them appraised, manage and protect them, give notice to and pay valid creditor claims, pay taxes, distribute, and file a final accounting. A family settlement agreement can be approved by the court.
 DURABLE POWER OF ATTORNEY: the agent is a fiduciary who must act in the principal's interest; an agent may not make gifts to himself or herself unless the document expressly authorizes it. Authority ends at the principal's death.
@@ -695,6 +704,11 @@ const PROBATE_SLOTS = [
       facts: 'Dub\'s checking account at Delta Planters Bank ($48,000 at death) is titled "Walter E. Pickens or Carol Ann Hobbs, Joint Tenants With Right of Survivorship." Dub added Carol in 2021 "so she can pay my bills." Wade says the money should go into the estate and be split with him.',
       key: 'NON-PROBATE ASSET: a joint account with right of survivorship passes to the surviving joint owner (Carol) by operation of law, outside the will. Wade\'s argument: Dub added Carol only for convenience (a "convenience account"), so there was no donative intent to make her a survivor; some courts allow that proof. But the signature card expressly says right of survivorship, which is strong evidence. Lesson: titling decisions can quietly rewrite an estate plan.' }
   ]},
+  { slot: 'intestacy', variants: [
+    { id: 'P-intestacy', title: 'What If There Were No Will?', exhibit: 'intestacyTrees',
+      facts: 'A HYPOTHETICAL the tutor poses (it did not really happen): Randy\'s lawyer argues the will is invalid. Suppose he wins and Dub died INTESTATE (no valid will). Scenario A: suppose Wade had died in August, before Dub, leaving two children: Lily (16) and a son, Jake (12). Carol and Randy survive Dub. Scenario B: suppose instead that ALL three children died before Dub: Carol (leaving Tyler), Wade (leaving Lily and Jake), and Randy (leaving no children). For each scenario, the student must compute each person\'s share of the intestate estate under PER STIRPES and under PER CAPITA, then connect it back to the residuary clause the student drafted.',
+      key: 'No spouse, so the estate goes to descendants. SCENARIO A (Wade predeceased; Carol and Randy alive): PER STIRPES: Carol 1/3, Randy 1/3, Lily 1/6, Jake 1/6 (Lily and Jake split the share Wade would have taken). PER CAPITA as the course outline defines it (each surviving child takes an equal share; grandchildren take per capita only if there are no surviving children): the surviving children set the shares, and Wade\'s line takes by representation, so the result is the same: 1/3, 1/3, 1/6, 1/6. Point out that a pure "per head" reading (Carol, Randy, Lily, Jake each 1/4) is the trap answer; most states do not do that when children survive. SCENARIO B (all children predeceased): PER STIRPES: divide at the children\'s generation, but only into stocks that have living descendants (Randy left none, so two stocks): Tyler 1/2 (Carol\'s share), Lily 1/4 and Jake 1/4 (Wade\'s share split). PER CAPITA: no surviving children, so each grandchild takes an equal share: Tyler 1/3, Lily 1/3, Jake 1/3. The difference is the whole point: per stirpes follows the family branches; per capita counts heads in the nearest generation. CONNECT TO THE WILL: look at the student\'s residuary clause. If they checked the per stirpes option, a predeceased residuary beneficiary\'s share goes to that person\'s descendants per stirpes (Wade\'s half to Lily and Jake, 1/4 each). If they did not, the residuary gift to Wade would lapse; most anti-lapse statutes would still save it for a child\'s descendants, but at common law a lapsed residuary share could pass by intestacy or to the other residuary taker depending on the state. Drafting it expressly avoids the fight.' }
+  ]},
   { slot: 'randy', variants: [
     { id: 'P-randy', title: 'A Letter From Houston', exhibit: 'randyLetter',
       facts: 'Randy emails Carol, the executor: "I am Dad\'s son and I am entitled to my third. If you don\'t send it, I\'ll see you in court. He wasn\'t in his right mind at the end anyway."',
@@ -722,7 +736,8 @@ function buildCase(caseNum) {
     pick(PROBATE_SLOTS[0].variants),
     pick(PROBATE_SLOTS[1].variants),
     pick(PROBATE_SLOTS[2].variants),
-    PROBATE_SLOTS[3].variants[0]
+    PROBATE_SLOTS[3].variants[0],
+    PROBATE_SLOTS[4].variants[0]
   ];
   const ringDies = life.some(e => e.id === 'L-ring-dies');
   return {
@@ -780,6 +795,12 @@ function handNote(text, opts) {
 }
 
 const EXHIBIT_RENDERERS = {
+  intestacyTrees: (n) => exhibitFrame(n, 'Hypothetical: Dub dies with no valid will', 'Not what really happened. Use these two trees to work out each share under per stirpes and per capita. Shaded boxes died before Dub.', `
+    <div class="ex-row">${intestacyTree('Scenario A', [
+      { name: 'Carol', dead: false, kids: [] }, { name: 'Wade', dead: true, kids: ['Lily', 'Jake'] }, { name: 'Randy', dead: false, kids: [] }])}
+    ${intestacyTree('Scenario B', [
+      { name: 'Carol', dead: true, kids: ['Tyler'] }, { name: 'Wade', dead: true, kids: ['Lily', 'Jake'] }, { name: 'Randy', dead: true, kids: [] }])}</div>`),
+
   // ---------- intake ----------
   intakeSheet: (n) => exhibitFrame(n, 'New Client Intake Sheet', 'Filled out by your receptionist before Dub came back to your office.', `
     <div class="form-doc">
@@ -930,6 +951,31 @@ function familyTreeSVG(status) {
     <g class="ft-side">${box(277, 170, 'Earl (81)', 'brother; son Clay', 'earl')}</g>
     <text x="336" y="226" class="ft-sub">Odessa Long: caretaker</text>
   </svg>`.replace('<line x1="290" y1="10" x2="330" y2="10" class="ft-line dash"/>', '');
+}
+
+function intestacyTree(label, kids) {
+  const W = 300, colX = [50, 150, 250];
+  let svg = `<svg viewBox="0 0 ${W} 230" class="int-tree" role="img" aria-label="${esc(label)} family tree">
+    <text x="${W / 2}" y="16" text-anchor="middle" class="it-label">${esc(label)}</text>
+    <rect x="105" y="26" width="90" height="30" rx="5" class="it-dead"/><text x="150" y="45" text-anchor="middle" class="it-name">Dub &#10013;</text>
+    <line x1="150" y1="56" x2="150" y2="72" class="ft-line"/><line x1="50" y1="72" x2="250" y2="72" class="ft-line"/>`;
+  kids.forEach((k, i) => {
+    const x = colX[i];
+    svg += `<line x1="${x}" y1="72" x2="${x}" y2="88" class="ft-line"/>
+      <rect x="${x - 40}" y="88" width="80" height="30" rx="5" class="${k.dead ? 'it-dead' : 'it-live'}"/>
+      <text x="${x}" y="107" text-anchor="middle" class="it-name">${esc(k.name)}${k.dead ? ' &#10013;' : ''}</text>`;
+    if (!k.dead) svg += `<rect x="${x - 22}" y="122" width="44" height="18" rx="3" class="it-share"/><text x="${x}" y="135" text-anchor="middle" class="it-q">?</text>`;
+    const g = k.kids.length;
+    k.kids.forEach((gk, j) => {
+      const gx = g === 1 ? x : x - 24 + j * 48;
+      svg += `<line x1="${x}" y1="118" x2="${gx}" y2="160" class="ft-line"/>
+        <rect x="${gx - 22}" y="160" width="44" height="26" rx="5" class="it-live"/>
+        <text x="${gx}" y="177" text-anchor="middle" class="it-name small">${esc(gk)}</text>
+        <rect x="${gx - 18}" y="190" width="36" height="18" rx="3" class="it-share"/><text x="${gx}" y="203" text-anchor="middle" class="it-q">?</text>`;
+    });
+    if (k.dead && !g) svg += `<text x="${x}" y="140" text-anchor="middle" class="it-none">no children</text>`;
+  });
+  return svg + '</svg>';
 }
 
 // ============================================================
@@ -1346,6 +1392,12 @@ function clearSession() {
 // ---------------- start ----------------
 function startTutor() {
   const saved = loadSession();
+  const nameEl = document.getElementById('attorneyName');
+  if (!(saved && saved.history && saved.history.length > 1) && (!nameEl || nameEl.value.trim().split(/\s+/).length < 2)) {
+    alert('Please enter your full name (first and last). It goes on the will you prepare as the attorney who drafted it.');
+    if (nameEl) nameEl.focus();
+    return;
+  }
   document.getElementById('welcomeScreen').style.display = 'none';
   document.getElementById('appLayout').classList.add('visible');
   if (saved && saved.history && saved.history.length > 1) {
@@ -1383,6 +1435,8 @@ function showRecoveryBanner() {
 }
 function restartFromBanner() {
   if (!confirm('Start a brand-new case? Your saved progress will be erased.')) return;
+  const nm = (document.getElementById('attorneyName') || {}).value || '';
+  if (nm.trim().split(/\s+/).length < 2) { const v = prompt('Enter your full name (first and last) for the will you will prepare:'); if (!v || v.trim().split(/\s+/).length < 2) return; document.getElementById('attorneyName').value = v.trim(); }
   try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   startFresh();
 }
@@ -2035,7 +2089,7 @@ function downloadTranscript(certified) {
   if (!certified && S.complete) { openMemo(); alert('Your certified transcript is issued with your memorandum. Complete the memo sections, then click "Download Certified Transcript".'); return; }
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const isCert = certified && S.cert;
-  const c = pdfSkeleton(isCert ? 'CERTIFIED TRANSCRIPT' : 'TRANSCRIPT: WORKING COPY (NOT CERTIFIED)', 'Attorney: ' + (S.will.attorney || '(not given)') + '  |  ' + date);
+  const c = pdfSkeleton(isCert ? 'CERTIFIED TRANSCRIPT' : 'TRANSCRIPT: WORKING COPY (NOT CERTIFIED)', 'Attorney: ' + S.will.attorney + '  |  ' + date);
   const { doc, M, CW } = c;
   if (isCert) { drawCertificatePage(c); doc.addPage(); c.y = 20; }
   S.feed.forEach(item => {
