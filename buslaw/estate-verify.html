@@ -37,7 +37,17 @@ table.meta td:first-child { font-weight: 700; color: #75787B; width: 190px; font
 .msg.student .who { color: #E84B8A; }
 .pre { white-space: pre-wrap; font-size: 0.86rem; line-height: 1.6; }
 .ruling { padding: 4px 0; border-bottom: 1px dotted #ddd; font-size: 0.84rem; }
-@media print { header, #lookup, button { display: none !important; } .card { box-shadow: none; border: 1px solid #ddd; } }
+.roster { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
+.roster th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #75787B; padding: 6px 6px; border-bottom: 2px solid #e0e0e6; }
+.roster td { padding: 7px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+.roster tr.done td { background: #f1faf4; }
+.roster tr.stale td { background: #fffaf0; }
+.tag { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #ece9f7; color: #21145F; }
+.tag.green { background: #e8f5ee; color: #1f5f37; } .tag.amber { background: #fef3d6; color: #6b4e06; }
+.counts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.counts div { background: #f5f3fc; border-radius: 10px; padding: 10px 14px; min-width: 120px; }
+.counts b { display: block; font-size: 1.5rem; color: #21145F; }
+@media print { header, #lookup, #rosterControls, button { display: none !important; } .card { box-shadow: none; border: 1px solid #ddd; } }
 </style>
 </head>
 <body>
@@ -52,10 +62,22 @@ table.meta td:first-child { font-weight: 700; color: #75787B; width: 190px; font
     <div class="small">The key is the INSTRUCTOR_KEY you set on the Worker. It is remembered in this browser only.</div>
     <button onclick="lookup()">Verify</button>
   </div>
+  <div class="card" id="rosterCard">
+    <h2>Class progress</h2>
+    <div class="small">Everyone who has opened the exercise (on the current version), how far they are, and every certificate issued. Uses the instructor key above.</div>
+    <div id="rosterControls"><button onclick="loadRoster()">Show class progress</button></div>
+    <div id="rosterOut"></div>
+  </div>
   <div id="result"></div>
 </main>
 <script>
 const WORKER_URL = 'https://estate-tutor.harveyfiser.workers.dev';
+function fmtDur(ms) { const s = Math.round((ms || 0) / 1000); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's'; }
+function writingLine(m) {
+  if (!m) return '';
+  if (m.via === 'button') return 'quick-reply button';
+  return 'written in ' + fmtDur(m.ms) + ' (' + fmtDur(m.activeMs) + ' active), ' + m.keys + ' edits, ' + m.chars + ' characters' + (m.blurs ? ', left page ' + m.blurs + 'x (' + fmtDur(m.awayMs) + ')' : '') + (m.pastes ? ', ' + m.pastes + ' paste attempt' + (m.pastes > 1 ? 's' : '') : '');
+}
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function strip(t) { return String(t || '').replace(/\[(STAGE|ADVANCE|NEXT_EVENT|WILL_APPROVED|RULING|DOC_UPDATE|CHOICES)[^\]]*\]/g, '').replace(/\*\*/g, '').trim(); }
 
@@ -65,6 +87,49 @@ function strip(t) { return String(t || '').replace(/\[(STAGE|ADVANCE|NEXT_EVENT|
   try { const k = localStorage.getItem('estate_instructor_key'); if (k) document.getElementById('key').value = k; } catch (e) {}
   if (id && document.getElementById('key').value) lookup();
 })();
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return esc(iso);
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+async function loadRoster() {
+  const key = document.getElementById('key').value;
+  const out = document.getElementById('rosterOut');
+  if (!key) { out.innerHTML = '<div class="small" style="color:#b3202a">Enter your instructor key above first.</div>'; return; }
+  try { localStorage.setItem('estate_instructor_key', key); } catch (e) {}
+  out.innerHTML = '<div class="small">Loading...</div>';
+  let data;
+  try {
+    const r = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'roster', key }) });
+    data = await r.json();
+    if (r.status === 403) { out.innerHTML = '<div class="small" style="color:#b3202a">Instructor key not accepted.</div>'; return; }
+    if (!data.progress) throw new Error(data.error || 'The Worker does not support the roster yet.');
+  } catch (e) { out.innerHTML = '<div class="small" style="color:#b3202a">Could not load: ' + esc(e.message) + '</div>'; return; }
+  // merge progress records and certificates by case number
+  const rows = {};
+  data.progress.forEach(p => { rows[p.caseLabel] = Object.assign({ certs: [] }, p); });
+  data.certs.forEach(c => {
+    const r = rows[c.caseLabel] || (rows[c.caseLabel] = { caseLabel: c.caseLabel, student: c.student, stageName: 'Distribution', complete: true, firstSeen: c.startedAt, lastSeen: c.issuedAt, certs: [] });
+    if (!r.student) r.student = c.student;
+    r.certs.push(c);
+  });
+  const list = Object.values(rows).sort((a, b) => String(a.student).localeCompare(String(b.student)) || String(b.lastSeen).localeCompare(String(a.lastSeen)));
+  const now = Date.now();
+  const nStarted = list.length, nCert = list.filter(r => r.certs.length).length, nDone = list.filter(r => r.complete || r.certs.length).length;
+  const names = new Set(list.map(r => String(r.student).toLowerCase().trim()).filter(Boolean));
+  let html = `<div class="counts"><div><b>${names.size}</b>students</div><div><b>${nStarted}</b>cases opened</div><div><b>${nDone}</b>finished all stages</div><div><b>${nCert}</b>certified transcripts</div></div>`;
+  html += `<table class="roster"><thead><tr><th>Student</th><th>Case</th><th>Where they are</th><th>Turns</th><th>Started</th><th>Last activity</th><th>Certificate</th></tr></thead><tbody>`;
+  list.forEach(r => {
+    const done = r.complete || r.certs.length;
+    const stale = !done && r.lastSeen && (now - new Date(r.lastSeen)) > 6 * 3600 * 1000;
+    const where = r.certs.length ? '<span class="tag green">Certified</span>' : (r.complete ? '<span class="tag green">Finished, not certified</span>' : '<span class="tag' + (stale ? ' amber' : '') + '">' + esc(r.stageName || ('Stage ' + r.stage)) + '</span>');
+    const cert = r.certs.map(c => `<a href="?id=${encodeURIComponent(c.certId)}" class="mono">${esc(c.certId)}</a>${c.status !== 'VERIFIED' ? ' <span class="tag amber">' + esc(c.status) + '</span>' : ''}`).join('<br>');
+    html += `<tr class="${done ? 'done' : (stale ? 'stale' : '')}"><td>${esc(r.student || '(no name)')}</td><td class="mono">${esc(r.caseLabel)}</td><td>${where}</td><td>${r.turns != null ? esc(r.turns) : ''}</td><td>${fmtTime(r.firstSeen || r.startedAt)}</td><td>${fmtTime(r.lastSeen)}</td><td>${cert}</td></tr>`;
+  });
+  html += `</tbody></table><div class="small">As of ${fmtTime(data.asOf)}. Amber rows: no activity in the last 6 hours. A student with two case numbers restarted (new browser or "Start New Case"). Students who began before this tracking was added appear once they reload the page or finish.</div>`;
+  out.innerHTML = html;
+}
 
 async function lookup() {
   const certId = document.getElementById('certId').value.trim().toUpperCase();
@@ -98,6 +163,8 @@ async function lookup() {
     <tr><td>Attorney name</td><td>${esc(pk.attorney || '(not given)')}</td></tr>
     <tr><td>Case variant</td><td class="mono" style="font-size:0.76rem">${esc((pk.caseVariant && pk.caseVariant.life || []).join(', '))}<br>${esc((pk.caseVariant && pk.caseVariant.probate || []).join(', '))}</td></tr>
     <tr><td>Student messages</td><td>${(pk.history || []).filter(m => m.role === 'user' && !m.hidden).length}</td></tr>
+    <tr><td>Writing record</td><td>${pk.writingSummary ? `${pk.writingSummary.typed} typed answers, ${pk.writingSummary.buttons} quick-reply buttons, <b style="color:${pk.writingSummary.flagged ? '#b3202a' : 'inherit'}">${pk.writingSummary.flagged} flagged</b>, ${pk.writingSummary.pastes} paste attempts blocked, ${fmtDur(pk.writingSummary.activeMs)} active writing` : 'Not recorded (older version of the exercise)'}</td></tr>
+    ${Object.entries(pk.memoMeta || {}).map(([k, m]) => `<tr><td>Memo ${({ memoGifts: 'Section 4', memoOutside: 'Section 5', memoDrafting: 'Section 6', memoReflect: 'Section 7' })[k] || esc(k)}</td><td>${m.flag ? '<b style="color:#b3202a">FLAG: ' + esc(m.flag) + '</b><br>' : ''}${esc(writingLine(m))}</td></tr>`).join('')}
   </table><button class="secondary" onclick="window.print()">Print this record</button></div>`;
   const rul = pk.rulings || {};
   html += `<div class="card"><h2>Rulings</h2>${Object.keys(rul).map(k => `<div class="ruling"><b>${esc(k)}</b>: ${esc(rul[k].outcome)}${rul[k].reason ? '. ' + esc(rul[k].reason) : ''}</div>`).join('') || 'None'}</div>`;
@@ -112,7 +179,7 @@ async function lookup() {
   html += `<div class="card"><h2>Transcript</h2>${(pk.history || []).map(m => {
     if (m.role === 'user' && m.hidden && /DRAFT SUBMITTED/.test(m.content)) return `<div class="msg draft"><div class="who">WILL DRAFT SUBMITTED</div>${esc(m.content)}</div>`;
     if (m.role === 'user' && m.hidden) return '';
-    if (m.role === 'user') return `<div class="msg student"><div class="who">STUDENT</div>${esc(m.content)}</div>`;
+    if (m.role === 'user') return `<div class="msg student"${m.meta && m.meta.flag ? ' style="border-left-color:#b3202a;background:#fff6f6"' : ''}><div class="who">STUDENT${m.meta ? ' <span style="font-weight:400;letter-spacing:0;color:' + (m.meta.flag ? '#b3202a' : '#75787B') + '">&middot; ' + (m.meta.flag ? 'FLAG: ' + esc(m.meta.flag) + ' &middot; ' : '') + esc(writingLine(m.meta)) + '</span>' : ''}</div>${esc(m.content)}</div>`;
     return `<div class="msg"><div class="who">TUTOR${m.static ? ' (opening message)' : ''}</div>${esc(strip(m.content))}</div>`;
   }).join('')}</div>`;
   out.innerHTML = html;

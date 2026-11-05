@@ -334,6 +334,9 @@ button { font-family: var(--font-body); }
 .int-tree .it-q { font: 700 11px var(--font-body); fill: var(--amber); }
 .int-tree .it-none { font: italic 9px var(--font-body); fill: var(--gray); }
 
+.paste-notice { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(20px); background: #21145F; color: #fff; padding: 10px 18px; border-radius: 24px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,0.25); opacity: 0; pointer-events: none; transition: all .25s; z-index: 9999; max-width: 90vw; text-align: center; }
+.paste-notice.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 </style>
 <style id="willStyles">
 /* ===== THE WILL DOCUMENT (also copied into the print window) ===== */
@@ -427,6 +430,7 @@ button { font-family: var(--font-body); }
   <div class="notice amber"><strong>Use one device and one browser for the whole exercise.</strong> Your progress saves automatically on this device, so you can take breaks. Switching devices or browsers, or using private/incognito mode, means starting over. Plan on 75 to 90 minutes total.</div>
   <div class="notice amber" id="welcomeResume" style="display:none"></div>
   <div class="notice"><strong>Privacy:</strong> While you work, your conversation is saved only in this browser and is sent to the AI tutor to generate replies. When you click Finalize, a certified copy of your transcript, will, and memorandum is stored securely so your instructor can verify it (kept about six months, viewable only with the instructor's key). Your name appears on the will you prepare, your documents, and the certified copy.</div>
+  <div class="notice"><strong>Your own words:</strong> The AI tutor is the only AI you may use in this exercise. Pasting is turned off, and for each answer the app records how long it took to write, how many edits you made, and whether you left the page. That record is printed on your certified transcript.</div>
 
   <button class="welcome-start-btn" onclick="startTutor()">Meet Your Client →</button>
 </div>
@@ -1215,7 +1219,7 @@ const STAGES = [
   { id: 4, name: 'Distribution', icon: '📜' }
 ];
 
-const PROMPT_CORE = `You are the AI tutor for "The Estate of Dub Pickens," an interactive wills and gifts exercise in a college Legal Environment of Business course at the Else School of Management, Millsaps College. The student plays a young attorney in Yazoo City, Mississippi. Their client is Walter "Dub" Pickens. Over the exercise the student interviews Dub, drafts and executes his will, analyzes the gifts Dub makes (or tries to make) while alive, and then handles his estate after he dies.
+const PROMPT_CORE = `You are the AI tutor for "The Estate of Dub Pickens," an interactive wills and gifts exercise in a college Business Law course (ADMN 4020) at the Else School of Management, Millsaps College. The student plays a young attorney in Yazoo City, Mississippi. Their client is Walter "Dub" Pickens. Over the exercise the student interviews Dub, drafts and executes his will, analyzes the gifts Dub makes (or tries to make) while alive, and then handles his estate after he dies.
 
 You play two roles:
 1. THE TUTOR: a sharp, warm mentor who teaches the law Socratically.
@@ -1233,6 +1237,8 @@ You play two roles:
 - Tone: firm but never rude. If a student is frustrated or resistant, hold the bar high, show empathy, and make it clear you believe they can get there. Never mock, dismiss, or talk down.
 - If the student asks "what else?" or seems eager, give them the next most interesting issue instead of summarizing.
 - If a student pastes something that looks copied from another student or the internet, ask them to put it in their own words and apply it to THESE facts.
+- WRITING RECORD: pasting is disabled. Some student messages end with a bracketed [WRITING RECORD ...] note added by the app (the student did not write it and cannot see it). It means the answer was entered unusually fast, with very few edits, or while the student was away from the page, which can mean it was written by another AI. Never accuse, never mention the record, and never lower your tone. Instead, before you rule, ask ONE short probe the student can only answer from THIS case: "In one or two sentences, in your own words: what exactly did Dub do (or not do) that decides this?" or a quick variation of the facts ("What if Dub had kept the title but given her both keys?"). If the probe answer is short, in the student's own voice, and right, move on normally.
+- Also probe, without any app note, when a reply reads like a polished essay (long, formal, list-heavy, generic) rather than a student working through the facts. Reward short, correct answers in the student's own words; length earns nothing.
 
 ## CONTROL TAGS
 [STAGE:N] current stage number (0 to 4). Required.
@@ -1372,6 +1378,20 @@ function saveSession() {
   if (!S) return;
   try { S.timestamp = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); flashSaved(); } catch (e) { /* private mode */ }
 }
+// ---------------- progress pings (instructor roster) ----------------
+function pingProgress(event) {
+  if (!S || !S.caseObj) return;
+  try {
+    const body = {
+      action: 'progress', event: event, caseLabel: S.caseObj.caseLabel, student: S.will.attorney || '',
+      stage: S.stage, stageName: STAGES[S.stage] ? STAGES[S.stage].name : '',
+      turns: S.history.filter(m => m.role === 'user' && !m.hidden).length,
+      lifeIdx: S.lifeIdx, probIdx: S.probIdx, complete: !!S.complete,
+      certId: S.cert ? S.cert.certId : null, startedAt: new Date(S.startedAt).toISOString()
+    };
+    fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).catch(() => {});
+  } catch (e) { /* never block the student */ }
+}
 function loadSession() {
   try {
     const raw = localStorage.getItem(SAVE_KEY); if (!raw) return null;
@@ -1423,6 +1443,7 @@ Right now, your job is to **interview him.** Find out who is in his family, what
 
 **Dub:** "Well, come on in, counselor. I'm Dub Pickens. My daughter Carol says I've been putting this off since the Clinton administration, and she ain't wrong. I brought y'all some boiled peanuts. Now. Where do we start?"
 [CHOICES: Tell me about your family | What do you own? | Why a new will now?]`, null, true);
+  pingProgress('started');
 }
 
 function showRecoveryBanner() {
@@ -1448,6 +1469,7 @@ function resumeSession() {
   S.resumedFlag = true;
   appendGate('🔄', 'Session resumed', 'Pick up where you left off. If you are not sure what to say, tell the tutor what you remember so far.', '');
   updateProgress(); renderEstateFile(); saveSession();
+  pingProgress('resumed');
 }
 
 // ---------------- feed rendering ----------------
@@ -1594,7 +1616,7 @@ function addTutorMessage(raw, sig, isStatic) {
     }
   } else if (S.stage === 4 && p.advance) {
     pending.push(() => {
-      S.complete = true;
+      S.complete = true; pingProgress('complete');
       appendGate('🎉', 'Estate closed!', 'Click <b>Finalize &amp; Download</b> in your Estate File to write your memorandum and get your feedback report. Upload the files to CourseConnect for credit.', 'pink');
     });
   }
@@ -1603,11 +1625,72 @@ function addTutorMessage(raw, sig, isStatic) {
   renderMessage('tutor', p.text, p.choices, false);
   pending.forEach(fn => fn());
   updateProgress(); renderEstateFile(); scrollChat(); saveSession();
+  if (!isStatic) { const t = S.history.filter(m => m.role === 'user' && !m.hidden).length; if (t > 0 && t % 8 === 0) pingProgress('activity'); }
 }
 
-function addStudentMessage(text, hidden) {
-  S.history.push({ role: 'user', content: text, hidden: !!hidden });
-  if (!hidden) { S.feed.push({ type: 'msg', role: 'student', content: text }); renderMessage('student', text, [], true); }
+// ---------------- writing record (academic integrity) ----------------
+// Pasting is turned off in the chat box and memo fields. For every answer the app records how
+// long it took to write, how many edits (keystrokes) produced it, and whether the student left
+// the page while writing. Nothing is blocked except paste and drop; the record is printed on the
+// certified transcript and shown on the instructor's verify page.
+const TRACK = {};
+function trk(id) { return TRACK[id] || (TRACK[id] = { start: 0, activeMs: 0, lastAt: 0, keys: 0, pastes: 0, blurs: 0, awayMs: 0, hiddenAt: 0 }); }
+function resetTrack(id) { delete TRACK[id]; }
+function noteEdit(id) {
+  const t = trk(id), now = Date.now();
+  if (!t.start) t.start = now;
+  if (t.lastAt && now - t.lastAt < 120000) t.activeMs += now - t.lastAt;  // ignore long idle gaps
+  t.lastAt = now; t.keys++;
+}
+function guardField(el, id) {
+  if (!el || el._guarded) return; el._guarded = true;
+  const block = e => { e.preventDefault(); trk(id).pastes++; pasteNotice(); };
+  el.addEventListener('paste', block);
+  el.addEventListener('drop', block);
+  el.addEventListener('beforeinput', e => {
+    if (/^insertFrom(Paste|Drop|Yank)/.test(e.inputType || '')) { block(e); return; }
+    noteEdit(id);
+  });
+}
+document.addEventListener('visibilitychange', () => {
+  Object.values(TRACK).forEach(t => {
+    if (!t.start) return;
+    if (document.hidden) { t.blurs++; t.hiddenAt = Date.now(); }
+    else if (t.hiddenAt) { t.awayMs += Date.now() - t.hiddenAt; t.hiddenAt = 0; }
+  });
+});
+function pasteNotice() {
+  let n = document.getElementById('pasteNotice');
+  if (!n) { n = document.createElement('div'); n.id = 'pasteNotice'; n.className = 'paste-notice'; document.body.appendChild(n); }
+  n.textContent = 'Pasting is turned off in this exercise. Type your answer in your own words.';
+  n.classList.add('show'); clearTimeout(window._pnT); window._pnT = setTimeout(() => n.classList.remove('show'), 3200);
+}
+function writingMeta(id, text) {
+  const t = trk(id);
+  const m = { chars: text.length, ms: t.start ? Date.now() - t.start : 0, activeMs: t.activeMs, keys: t.keys, pastes: t.pastes, blurs: t.blurs, awayMs: t.awayMs };
+  m.flag = writingFlag(m);
+  return m;
+}
+function writingFlag(m) {
+  if (!m || m.via === 'button' || m.chars < 150) return '';
+  const f = [];
+  if (m.pastes) f.push('paste attempted');
+  if (m.keys < m.chars / 8) f.push('very few edits for its length');
+  const mins = Math.max(m.activeMs, 1) / 60000;
+  if ((m.chars / 5) / mins > 100) f.push('entered faster than typing speed');
+  if (m.blurs >= 2 || m.awayMs > 90000) f.push('left the page while writing');
+  return f.join('; ');
+}
+function fmtDur(ms) { const s = Math.round((ms || 0) / 1000); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's'; }
+function writingLine(m) {
+  if (!m) return '';
+  if (m.via === 'button') return 'quick-reply button';
+  return 'written in ' + fmtDur(m.ms) + ' (' + fmtDur(m.activeMs) + ' active), ' + m.keys + ' edits, ' + m.chars + ' characters' + (m.blurs ? ', left page ' + m.blurs + 'x (' + fmtDur(m.awayMs) + ')' : '') + (m.pastes ? ', ' + m.pastes + ' paste attempt' + (m.pastes > 1 ? 's' : '') : '');
+}
+
+function addStudentMessage(text, hidden, meta) {
+  S.history.push({ role: 'user', content: text, hidden: !!hidden, meta: meta || null });
+  if (!hidden) { S.feed.push({ type: 'msg', role: 'student', content: text, meta: meta || null }); renderMessage('student', text, [], true); }
   scrollChat(); saveSession();
 }
 
@@ -1616,15 +1699,17 @@ function quickReply(btn) {
   parent.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
   btn.style.opacity = '1'; btn.style.background = 'var(--purple)'; btn.style.color = '#fff';
   document.getElementById('chatInput').value = btn.getAttribute('data-v');
-  sendMessage();
+  sendMessage({ via: 'button' });
 }
 
-async function sendMessage() {
+async function sendMessage(opts) {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || isWaiting) return;
+  const meta = (opts && opts.via === 'button') ? { via: 'button', chars: text.length } : writingMeta('chat', text);
+  resetTrack('chat');
   input.value = ''; autoResize(input);
-  addStudentMessage(text, false);
+  addStudentMessage(text, false, meta);
   await askTutor();
 }
 
@@ -1647,7 +1732,7 @@ async function askTutor() {
 }
 
 function apiMessages() {
-  let msgs = S.history.map(m => ({ role: m.role, content: m.role === 'assistant' ? m.content : m.content })).filter(m => m.content && m.content.trim());
+  let msgs = S.history.map(m => ({ role: m.role, content: (m.role === 'user' && m.meta && m.meta.flag) ? m.content + '\n\n[WRITING RECORD (from the app, not typed by the student): ' + m.meta.flag + '. ' + writingLine(m.meta) + ']' : m.content })).filter(m => m.content && m.content.trim());
   msgs = msgs.slice(-44);
   // merge consecutive same-role messages, ensure first is user
   const out = [];
@@ -1693,7 +1778,7 @@ function buildProgressBar() {
   });
   updateProgress();
 }
-function setStage(n) { S.stage = n; updateProgress(); renderEstateFile(); saveSession(); }
+function setStage(n) { S.stage = n; updateProgress(); renderEstateFile(); saveSession(); pingProgress('stage'); }
 function updateProgress() {
   if (!S) return;
   document.querySelectorAll('.stage').forEach((el, i) => {
@@ -1953,6 +2038,13 @@ function openMemo() {
 
 function collectMemo() {
   S.memo = { gifts: val('memoGifts'), outside: val('memoOutside'), drafting: val('memoDrafting'), reflect: val('memoReflect') };
+  S.memoMeta = S.memoMeta || {};
+  ['memoGifts', 'memoOutside', 'memoDrafting', 'memoReflect'].forEach(id => {
+    const t = TRACK[id]; if (!t) return;
+    const prev = S.memoMeta[id] || { ms: 0, activeMs: 0, keys: 0, pastes: 0, blurs: 0, awayMs: 0 };
+    const cur = { activeMs: prev.activeMs + t.activeMs, keys: prev.keys + t.keys, pastes: prev.pastes + t.pastes, blurs: prev.blurs + t.blurs, awayMs: prev.awayMs + t.awayMs, ms: prev.ms + (t.start ? Date.now() - t.start : 0), chars: val(id).length };
+    cur.flag = writingFlag(cur); S.memoMeta[id] = cur; resetTrack(id);
+  });
   saveSession(); return S.memo;
 }
 function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
@@ -1984,7 +2076,8 @@ function certPackage() {
     exercise: 'The Estate of Dub Pickens', caseLabel: S.caseObj.caseLabel,
     caseVariant: { life: S.caseObj.life, probate: S.caseObj.probate, dresserCash: S.caseObj.dresserCash, deathCause: S.caseObj.deathCause },
     attorney: S.will.attorney || '', startedAt: new Date(S.startedAt).toISOString(),
-    history: S.history.map(m => ({ role: m.role, content: m.content, sig: m.sig || null, static: !!m.static, hidden: !!m.hidden })),
+    history: S.history.map(m => ({ role: m.role, content: m.content, sig: m.sig || null, static: !!m.static, hidden: !!m.hidden, meta: m.meta || null })),
+    memoMeta: S.memoMeta || {}, writingSummary: writingSummary(),
     will: willPlainText(S.will), rulings: S.rulings, estateFile: S.doc, memo: S.memo || {},
     feedback: S.feedback || '', feedbackRaw: S.feedbackRaw || '', feedbackSig: S.feedbackSig || null
   };
@@ -2003,7 +2096,7 @@ async function ensureCertified(btn) {
   try {
     const resp = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'certify', package: certPackage() }) });
     const data = await resp.json();
-    if (data.certId) { S.cert = Object.assign(data, { snapshot: JSON.stringify([S.history.length, S.memo, S.feedback]) }); saveSession(); }
+    if (data.certId) { S.cert = Object.assign(data, { snapshot: JSON.stringify([S.history.length, S.memo, S.feedback]) }); saveSession(); pingProgress('certified'); }
     else throw new Error(data.error || 'no certificate');
   } catch (e) {
     S.cert = null;
@@ -2036,7 +2129,7 @@ function pdfSkeleton(title, subtitle) {
   doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.text(subtitle, M + 4, 36);
   doc.setFillColor(...PDF.LAV); doc.rect(0, 46, W, 13, 'F');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...PDF.PURPLE);
-  doc.text('ELSE SCHOOL OF MANAGEMENT  |  MILLSAPS COLLEGE  |  Legal Environment of Business', M + 4, 54);
+  doc.text('ELSE SCHOOL OF MANAGEMENT  |  MILLSAPS COLLEGE  |  ADMN 4020 Business Law', M + 4, 54);
   const ctx = { doc, W, H, M, CW, y: 66 };
   ctx.need = (h) => { if (ctx.y + h > H - 18) { doc.addPage(); ctx.y = 20; } };
   ctx.section = (t) => { ctx.need(16); doc.setFillColor(...PDF.LAV); doc.rect(M, ctx.y, CW, 8, 'F'); doc.setFillColor(...PDF.PURPLE); doc.rect(M, ctx.y, 2.5, 8, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...PDF.PURPLE); doc.text(t, M + 6, ctx.y + 5.5); ctx.y += 12; };
@@ -2111,11 +2204,17 @@ function downloadTranscript(certified) {
       doc.setFillColor(...(tutor ? [245, 243, 252] : [255, 255, 255])); doc.rect(M, c.y, CW, h, 'F');
       doc.setFillColor(...(tutor ? PDF.PURPLE : PDF.PINK)); doc.rect(M, c.y, 2.5, h, 'F');
       let ty = c.y + 5;
-      if (start === 0) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...(tutor ? PDF.PURPLE : PDF.PINK)); doc.text(tutor ? 'TUTOR' : 'STUDENT', M + 6, ty); ty += 6; }
+      if (start === 0) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...(tutor ? PDF.PURPLE : PDF.PINK)); doc.text(tutor ? 'TUTOR' : 'STUDENT', M + 6, ty);
+        if (!tutor && item.meta) { doc.setFont('helvetica', 'normal'); doc.setFontSize(6.6); doc.setTextColor(...(item.meta.flag ? [179, 32, 42] : PDF.GRAY)); doc.text(doc.splitTextToSize((item.meta.flag ? 'FLAG: ' + item.meta.flag + '  |  ' : '') + writingLine(item.meta), CW - 30)[0], M + 24, ty); }
+        ty += 6; }
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3); doc.setTextColor(...PDF.TEXT); doc.text(chunk, M + 6, ty);
       c.y += h + 3; start += chunk.length;
     }
   });
+  const ws = writingSummary();
+  c.section('WRITING RECORD');
+  c.para('Pasting was turned off. For each typed answer the app recorded writing time, number of edits, and time away from the page. ' + ws.typed + ' typed answers (' + ws.buttons + ' quick-reply buttons); ' + ws.flagged + ' flagged; ' + ws.pastes + ' paste attempts blocked; total active writing time ' + fmtDur(ws.activeMs) + '.', { size: 8.5 });
+  Object.entries(S.memoMeta || {}).forEach(([k, m]) => c.para('Memo ' + ({ memoGifts: 'Section 4', memoOutside: 'Section 5', memoDrafting: 'Section 6', memoReflect: 'Section 7' }[k] || k) + ': ' + (m.flag ? 'FLAG: ' + m.flag + '. ' : '') + writingLine(m), { size: 8.2 }));
   c.section('WILL DRAFTS SUBMITTED');
   S.history.filter(m => m.hidden && /DRAFT SUBMITTED/.test(m.content)).forEach(m => c.para(m.content, { mono: true, size: 7.6, lh: 4.1 }));
   watermark(c, isCert ? 'CERTIFIED' : 'WORKING COPY');
@@ -2127,6 +2226,7 @@ function downloadTranscript(certified) {
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('chatInput');
   inp.addEventListener('input', () => autoResize(inp));
+  guardField(inp, 'chat');
   const saved = loadSession();
   if (saved) { const b = document.getElementById('welcomeResume'); if (b) { b.style.display = 'block'; b.innerHTML = `💾 You have a saved case in progress (Cause No. ${esc(saved.caseObj.caseLabel)}). Click the button below and choose <b>Resume</b>.`; } }
 });
@@ -2191,6 +2291,7 @@ function drawCertificatePage(c) {
   row('CASE', S.caseObj.caseLabel);
   row('ATTORNEY', S.will.attorney || '(not given)');
   row('TUTOR REPLIES', cert.verified + ' of ' + cert.total + ' cryptographically verified');
+  { const ws = writingSummary(); row('WRITING RECORD', ws.typed + ' typed answers, ' + ws.flagged + ' flagged, ' + ws.pastes + ' paste attempts blocked'); }
   row('SEAL', cert.seal);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...PDF.GRAY); doc.text('FINGERPRINT (SHA-256)', M + 4, y + 96);
   doc.setFont('courier', 'normal'); doc.setFontSize(8.4); doc.setTextColor(...PDF.TEXT);
@@ -2219,6 +2320,23 @@ function drawCertBlock(c) {
   }
   c.y += 26;
 }
+
+
+// ---------------- writing record summary + memo field guards ----------------
+function writingSummary() {
+  const us = (S.history || []).filter(m => m.role === 'user' && !m.hidden);
+  const typed = us.filter(m => m.meta && m.meta.via !== 'button');
+  return {
+    typed: typed.length, buttons: us.filter(m => m.meta && m.meta.via === 'button').length,
+    unrecorded: us.filter(m => !m.meta).length,
+    flagged: typed.filter(m => m.meta.flag).length + Object.values(S.memoMeta || {}).filter(m => m.flag).length,
+    pastes: typed.reduce((a, m) => a + (m.meta.pastes || 0), 0) + Object.values(S.memoMeta || {}).reduce((a, m) => a + (m.pastes || 0), 0),
+    activeMs: typed.reduce((a, m) => a + (m.meta.activeMs || 0), 0)
+  };
+}
+new MutationObserver(() => {
+  ['memoGifts', 'memoOutside', 'memoDrafting', 'memoReflect'].forEach(id => guardField(document.getElementById(id), id));
+}).observe(document.documentElement, { childList: true, subtree: true });
 
 </script>
 </body>
