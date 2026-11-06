@@ -141,6 +141,10 @@ button { font-family: var(--font-body); }
 .ef-btns button { margin: 0 6px 6px 0; }
 .mini-btn { background: var(--purple-light); color: var(--purple); border: 1.5px solid var(--purple); border-radius: 16px; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer; }
 .mini-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.desk-chat-btn { display: none; flex-shrink: 0; margin-right: 10px; background: var(--purple); color: #fff; border: none; border-radius: var(--radius); padding: 10px 14px; font-size: 0.82rem; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 42px; }
+.desk-chat-btn.show { display: inline-block; }
+.desk-chat-btn:hover { filter: brightness(1.1); }
+.gate-btn { display: inline-block; margin-top: 8px; background: var(--purple); color: #fff; border: none; border-radius: 16px; padding: 7px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
 .ledger-item { border-left: 3px solid #ccc; padding: 4px 0 4px 8px; margin-bottom: 7px; }
 .ledger-item.green { border-color: var(--green); } .ledger-item.red { border-color: var(--red); } .ledger-item.amber { border-color: var(--amber); } .ledger-item.current { border-color: var(--purple); background: var(--purple-light); }
 .ledger-item .li-title { font-weight: 700; font-size: 0.78rem; }
@@ -464,6 +468,7 @@ button { font-family: var(--font-body); }
     <div class="progress-bar"><div class="progress-stages" id="progressStages"></div></div>
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-input-area">
+      <button class="desk-chat-btn" id="deskChatBtn" onclick="openDesk()" title="Open the Deed Drafting Desk to build or edit your deed">✍️ Edit Deed</button>
       <textarea id="chatInput" placeholder="Type your response..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
       <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -1146,7 +1151,7 @@ You play two roles:
 
 ## CONTROL TAGS
 [STAGE:N] current stage number (0 to 4). Required.
-[DOC_UPDATE:key=short value] records a finding in the student's Property File. Keys: fixtures, crops, airspace, randy, closing, summary. Values: one line, under 25 words.
+[DOC_UPDATE:key=short value] records a finding in the student's Property File. Keys: fixtures, crops, airspace, randy, closing. Values: one line, under 25 words.
 [ADVANCE] only when the current stage's gate is met (Stages 0, 1, 2, 4). Never in Stage 3.
 [NEXT_EVENT] in Stages 1 and 2, in the SAME response where you begin presenting the next issue. The app then shows its exhibit. Do not present an issue without it.
 [RULING:EVENT_ID=Short outcome | one-sentence reason] after the student has worked an issue through. Use the exact event ID. Outcomes like: Fee simple defeasible, reverted; Fee simple absolute; Waste by life tenant; Periodic tenancy; Tenancy at sufferance; Tenancy at will ended; Implied easement; Prescriptive easement; Easement in gross and license; Toler owns the strip; No adverse possession; Contract missing deed type; Seller keeps earnest money; Must disclose; No duty to disclose; No implied warranty; Covenants and exceptions.
@@ -1178,6 +1183,7 @@ After ruling on the LAST issue, emit [ADVANCE] and tell the student it is time t
 
   3: `## STAGE 3: DEED & CLOSING (about 10 minutes)
 The student uses the Deed Drafting Desk (a form that generates the deed). When they click "Send Deed for Review," you receive a message beginning "DEED SUBMITTED" with the full text. Review it as Tutor; let Carol react in character where it fits.
+WHEN FIXES ARE NEEDED: list them clearly, then tell the student exactly how to make them: "Click the Reopen the Deed Drafting Desk button just below this message (or the Edit Deed button next to the chat box). Your draft is still there; change the choices on the left and click Send Deed for Review again." Never just say "revise it" without saying where.
 WHAT THE DESK CAN DO: choose the deed type (warranty, grant, quitclaim, sheriff's); check which seller(s) sign as grantor; choose the grantee wording (the Whitleys as joint tenants with right of survivorship, as tenants in common, Marcus only, or the bank); words of conveyance (present, or "agree to convey at a later date"); the description (lot and block from the recorded plat, street address only, or "the old Pickens home place"); consideration recital; exceptions to list (taxes and zoning, the 1952 covenants, the cemetery plot, the case's easement, LESS AND EXCEPT the Toler strip, Odessa's tenancy); notary acknowledgment; and delivery (at closing, kept in Carol's safe, or at Carol's death). There is no free-text field. Never require anything the desk cannot produce.
 REVIEW CHECKLIST (require fixes for REQUIRED items; question the others):
 - REQUIRED: the grantor(s) must be the record owner(s) shown in the case data (SELLERS). The grantee must be the Whitleys (the bank is the mortgagee, not the grantee).
@@ -1192,9 +1198,9 @@ Be generous: the goal is understanding, not a perfect form. Never require more t
 ALSO, once in this stage, as ONE quick question (before or after approval, not blocking): Randy calls Carol: "I'm Dad's son. I'll sign a quitclaim deed to the house for five thousand dollars so you can close." Ask the student whether Carol needs it and what a quitclaim from Randy would convey. (Answer: Randy has no interest under the valid will, so a quitclaim from him conveys nothing; Carol does not need it.) Emit [DOC_UPDATE:randy=...].
 Do not emit [ADVANCE] in this stage; the app moves on after the closing ceremony.`,
 
-  4: `## STAGE 4: WRAP-UP (about 3 minutes)
-The deed has been signed, acknowledged, delivered at closing, and recorded; the closing statement is on screen. Ask ONE thing: a short summary (two or three sentences, informal is fine) of what the Whitleys actually got and the closest call in their case. Accept any reasonable answer.
-Then emit [DOC_UPDATE:closing=one-line summary of the closing] [DOC_UPDATE:summary=their three sentences, condensed] [ADVANCE], congratulate them specifically, and tell them to click "Finalize & Download" in the Property File.`
+  4: `## STAGE 4: WRAP-UP (about 1 minute)
+The deed has been signed, acknowledged, delivered at closing, and recorded; the closing statement is on screen. Do NOT ask the student to summarize, explain their choices, or answer any more questions: they will write that ONCE, in the short memorandum under "Finalize & Download," and must not have to say it twice.
+In two or three sentences, YOU sum up what the Whitleys got and name the closest call in this student's case, congratulating them specifically on what they did well. Then emit [DOC_UPDATE:closing=one-line summary of the closing] [ADVANCE] and tell them the last step is to click "Finalize & Download" in the Property File, write the short memo there, and download their certified files.`
 };
 
 function eventBlock(ev, status) {
@@ -1480,7 +1486,14 @@ function addTutorMessage(raw, sig, isStatic) {
   const cur = S.stage, c = S.caseObj;
   if (p.approved && cur === 3) {
     S.deed.approved = true; S.deed.approvedVersion = S.deed.version;
-    pending.push(() => appendGate('✅', 'Deed approved', 'Open the Deed Drafting Desk and click <b>Sign &amp; Close</b> to go to the closing table.', ''));
+    pending.push(() => appendGate('✅', 'Deed approved', 'Open the Deed Drafting Desk and click <b>Sign &amp; Close</b> (bottom right of the desk) to go to the closing table.' + '<br><button class="gate-btn" onclick="openDesk()">✍️ Open the Desk to Sign &amp; Close</button>', ''));
+  }
+
+  if (cur === 3 && !p.approved && !S.deed.executed) {
+    const lastUser = S.history.filter(m => m.role === 'user').slice(-1)[0];
+    if (lastUser && /^DEED SUBMITTED/.test(lastUser.content)) {
+      pending.push(() => appendGate('📝', 'Revisions needed on your deed', 'Read the review above, then click the button to reopen the Drafting Desk. Your draft is saved there: change the choices on the left, watch the deed update on the right, and click <b>Send Deed for Review</b> again. (You can also use <b>✍️ Edit Deed</b> next to the chat box, or <b>Open Drafting Desk</b> under The Deed in your Property File.)' + '<br><button class="gate-btn" onclick="openDesk()">✍️ Reopen the Deed Drafting Desk</button>', 'pink'));
+    }
   }
 
   p.rulings.forEach(r => {
@@ -1510,7 +1523,7 @@ function addTutorMessage(raw, sig, isStatic) {
       pending.push(() => showExhibit(ev.exhibit));
     }
     if (p.advance && S.probIdx >= c.probate.length - 1) {
-      pending.push(() => { setStage(3); appendGate('✍️', 'Stage 3: Deed & Closing', 'The Deed Drafting Desk is open. Build the deed, preview it, and send it for review.', ''); setTimeout(openDesk, 900); });
+      pending.push(() => { setStage(3); appendGate('✍️', 'Stage 3: Deed & Closing', 'The Deed Drafting Desk is open. Build the deed, preview it, and send it for review. If you close it, reopen it any time with the <b>✍️ Edit Deed</b> button next to the chat box, or <b>Open Drafting Desk</b> under The Deed in your Property File on the right.' + '<br><button class="gate-btn" onclick="openDesk()">✍️ Open the Deed Drafting Desk</button>', ''); setTimeout(openDesk, 900); });
     }
   } else if (cur === 4 && p.advance && !S.complete) {
     pending.push(() => {
@@ -1685,6 +1698,7 @@ function updateProgress() {
   });
   document.querySelectorAll('.stage-connector').forEach((el, i) => el.classList.toggle('completed', i < S.stage));
   const fin = document.getElementById('finalizeBtn'); if (fin) fin.disabled = !S.complete;
+  const dcb = document.getElementById('deskChatBtn'); if (dcb) dcb.classList.toggle('show', S.stage === 3 && !(S.deed && S.deed.executed));
 }
 
 // ---------------- estate file panel ----------------
@@ -1733,11 +1747,12 @@ function renderEstateFile() {
     `<div style="font-size:0.78rem">${S.deed.version > 0 ? (DEED_TYPES[S.deed.type] ? DEED_TYPES[S.deed.type].label : 'Type not chosen') + '; ' + S.deed.exceptions.length + ' exception(s) listed' : 'Unlocks after The Sale.'}</div>${f('randy', 'Randy\'s quitclaim offer')}
     <div class="ef-btns"><button class="mini-btn" onclick="openDesk()" ${S.stage < 3 ? 'disabled' : ''}>${S.deed.executed ? 'View Drafting Desk' : 'Open Drafting Desk'}</button>
     <button class="mini-btn" onclick="openDeedViewer()" ${S.deed.version < 1 ? 'disabled' : ''}>View Deed</button></div>`, S.stage === 3);
-  html += efSection('ef-dist', '🔑 Closing', S.complete ? '<span class="pill green">DONE</span>' : stagePill(4), f('closing', 'Closing') + f('summary', 'Your three-sentence summary'), S.stage === 4);
+  html += efSection('ef-dist', '🔑 Closing', S.complete ? '<span class="pill green">DONE</span>' : stagePill(4), f('closing', 'Closing') + (S.doc.summary ? f('summary', 'Your three-sentence summary') : ''), S.stage === 4);
   html += efSection('ef-exhibits', '📎 Exhibits (' + S.exhibits.length + ')', '', S.exhibits.length ? S.exhibits.map(e => `<button class="exhibit-link" onclick="openExhibit('${e.id}', ${e.num})">Exhibit ${e.num}: ${esc(e.title)}</button>`).join('') : '<span class="ef-value empty">None yet</span>', false);
   body.innerHTML = html;
   document.getElementById('docCaseNo').textContent = 'File No. ' + c.caseLabel;
   const fin = document.getElementById('finalizeBtn'); if (fin) fin.disabled = !S.complete;
+  const dcb = document.getElementById('deskChatBtn'); if (dcb) dcb.classList.toggle('show', S.stage === 3 && !(S.deed && S.deed.executed));
 }
 
 function toggleDocMobile() {
